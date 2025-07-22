@@ -301,11 +301,14 @@ The **URL you used to retrieve the malicious payload** is also the answer to the
 
 <!-- #endregion -->
 
+</details>
 
-
-<br><br>
 
 <br>
+
+---
+
+
 © 2025 by daonware 
 <br>Created: July 23, 2025
 <br>Last updated: July 23, 2025
