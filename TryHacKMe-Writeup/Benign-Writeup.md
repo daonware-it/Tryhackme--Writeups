@@ -1,3 +1,7 @@
+This is a write-up for the room **[Benign](https://tryhackme.com/room/benign)**
+<br>
+<br>
+
 <!-- #region -->
 <details>
 <summary><strong> Task 1: Introduction</strong></summary>
@@ -297,3 +301,13 @@ The **URL you used to retrieve the malicious payload** is also the answer to the
 
 <!-- #endregion -->
 
+
+
+<br><br>
+
+<br>
+© 2025 by daonware 
+<br>Created: July 23, 2025
+<br>Last updated: July 23, 2025
+
+License: [Public Domain / CC0](https://creativecommons.org/publicdomain/zero/1.0/)
