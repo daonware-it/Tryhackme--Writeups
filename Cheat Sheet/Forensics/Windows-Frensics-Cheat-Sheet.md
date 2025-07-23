@@ -85,11 +85,190 @@
 
 <br>
 
+# Windows Recovery with Tools for Forensic
+
+---
+
+## Introduction  
+In previous tasks, we covered Windows forensics focusing on the Windows Registry to extract forensic artifacts such as system and user information, opened files/folders, executed programs, and connected external devices. However, forensic artifacts also exist outside the Registry.  
+This document covers:  
+- Different Windows file systems  
+- Locations of artifacts in the file system  
+- Evidence of program and file/folder execution and usage of external devices  
+- Basics of deleted file recovery  
+- Useful tools from Eric Zimmerman and Autopsy for artifact analysis  
+
+---
+
+## File Systems in Windows
+
+### Why File Systems?  
+Storage devices (e.g., hard drives, USB sticks) are just collections of bits. File systems organize these bits into meaningful data using defined structures and rules.
+
+---
+
+### File Allocation Table (FAT)  
+- Microsoft's standard file system since the 1970s, still widely used on USB sticks, SD cards, and digital cameras.  
+- Creates a table indexing locations of file data.
+
+**Key Data Structures:**  
+- **Cluster:** Basic unit of storage holding file data (bits).  
+- **Directory:** Stores file metadata (name, start cluster, length).  
+- **File Allocation Table:** Linked list indicating cluster status and pointing to next clusters.
+
+**Versions Overview:**  
+| Attribute              | FAT12    | FAT16     | FAT32       |
+|------------------------|----------|-----------|-------------|
+| Addressable Bits       | 12       | 16        | 28          |
+| Max Number of Clusters | 4,096    | 65,536    | 268,435,456 |
+| Supported Cluster Size | 512B–8KB | 2KB–32KB  | 4KB–32KB    |
+| Max Volume Size        | 32MB     | 2GB       | 2TB         |
+
+*Note:* Windows limits FAT32 formatting to 32GB, but supports larger volumes formatted by other OS.
+
+---
+
+### exFAT  
+- Developed as FAT32 successor for large files and volumes (e.g., high-res photos/videos).  
+- Standard file system for SD cards > 32GB.  
+- Supports cluster sizes from 4KB up to 32MB.  
+- Max file and volume size: 128 Petabytes (PB).  
+- Maximum ~2,796,202 files per directory.  
+- Lower system overhead and more efficient than FAT.
+
+---
+
+### NTFS (New Technology File System)  
+- Introduced in 1993 with Windows NT 3.1, standard since Windows XP.  
+- Provides advanced features: security, reliability, data recovery, support for large files/volumes.
+
+**Key Features:**  
+- **Journaling:** Logs metadata changes in $LOGFILE, aids recovery after crashes.  
+- **Access Controls:** Manages file ownership and permissions per user.  
+- **Volume Shadow Copy:** Enables restoring previous file versions (important for ransomware recovery).  
+- **Alternate Data Streams (ADS):** Files can contain multiple data streams (e.g., Zone Identifier for internet downloads).  
+- **Master File Table (MFT):** Extensive database of all files and objects on the volume.
+
+**Important MFT Files:**  
+- **$MFT:** Contains entries of all files/folders and their storage locations.  
+- **$LOGFILE:** Logs transactions for filesystem integrity.  
+- **$UsnJrnl:** Change journal with all file modifications.
+
+**Analysis Tool:**  
+- **MFTECmd.exe** by Eric Zimmerman for MFT analysis (CLI & GUI).  
+- Example command to analyze MFT and save CSV:  
+  `MFTECmd.exe -f <path-to-$MFT-file> --csv <output-path>`
+
+---
+
+## Deleted Files & Data Recovery
+
+### Basics  
+- Deleting a file removes filesystem references, but data remains until overwritten (unallocated space).  
+- Recovery involves identifying unchanged data in unallocated clusters.
+
+### Disk Image  
+- Bit-by-bit copy of a storage device (including metadata).  
+- Enables forensic analysis without altering original evidence.
+
+### Recovery with Autopsy  
+- Autopsy is a GUI tool for forensic disk image analysis.  
+- Workflow:  
+  - Create new case  
+  - Add disk image as data source  
+  - Select modules like "Recent Activity"  
+  - Identify deleted files (marked with X) and extract.
+
+---
+
+## Forensic Artifacts Indicating Program Execution
+
+### Windows Prefetch Files  
+- Location: `C:\Windows\Prefetch`  
+- Extension: `.pf`  
+- Contain info about last run programs, run counts, accessed files and device handles.  
+- Analysis Tool: **PECmd.exe** by Eric Zimmerman.  
+- Example commands:  
+  - Single file: `PECmd.exe -f <prefetch-file> --csv <output-path>`  
+  - Directory: `PECmd.exe -d <prefetch-directory> --csv <output-path>`
+
+### Windows 10 Timeline  
+- Stores recently used applications/files in an SQLite database.  
+- Location:  
+  `C:\Users\<username>\AppData\Local\ConnectedDevicesPlatform\{randomfolder}\ActivitiesCache.db`  
+- Analysis Tool: **WxTCmd.exe** by Eric Zimmerman.  
+- Example:  
+  `WxTCmd.exe -f <ActivitiesCache.db> --csv <output-path>`
+
+### Windows Jump Lists  
+- Shows recently opened files per application (right-click on taskbar icon).  
+- Location:  
+  `C:\Users\<username>\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations`  
+- Analysis Tool: **JLECmd.exe** by Eric Zimmerman.  
+- Example:  
+  `JLECmd.exe -d <jumplist-directory> --csv <output-path>`
+
+---
+
+## Shortcut Files (LNK)
+
+- Windows creates shortcuts for locally or remotely opened files.  
+- Locations:  
+  - `C:\Users\<username>\AppData\Roaming\Microsoft\Windows\Recent\`  
+  - `C:\Users\<username>\AppData\Roaming\Microsoft\Office\Recent\`  
+- Contain paths, creation, and access times of original files.  
+- Analysis Tool: **LECmd.exe** by Eric Zimmerman.  
+- Example:  
+  `LECmd.exe -f <lnk-file> --csv <output-path>`
+
+---
+
+## IE/Edge History
+
+- Includes visited websites and opened local files with `file:///` prefix.  
+- Location:  
+  `C:\Users\<username>\AppData\Local\Microsoft\Windows\WebCache\WebCacheV*.dat`  
+- Analysis with Autopsy:  
+  - Add logical files as data source  
+  - Point to “triage” folder  
+  - Enable only “Recent Activity” module  
+- Shows local files accessed via browser.
+
+---
+
+## Setupapi.dev.log for USB Devices
+
+- Logs device setup when USB devices are connected.  
+- Location:  
+  `C:\Windows\inf\setupapi.dev.log`  
+- Contains device ID, serial number, first and last connection times.  
+- Useful for proving USB device connections.
+
+---
+
+# Eric Zimmerman Tools Overview
+
+| Tool        | Purpose                            | Key Options / Examples                                    |
+|-------------|----------------------------------|-----------------------------------------------------------|
+| MFTECmd     | NTFS MFT analysis                 | `-f <MFT-file> --csv <output-folder>`                     |
+| PECmd       | Prefetch files analysis           | `-f <prefetch-file> --csv <output-folder>`                |
+| WxTCmd      | Windows 10 Timeline analysis      | `-f <ActivitiesCache.db> --csv <output-folder>`           |
+| JLECmd      | Windows Jump Lists analysis       | `-d <jumplist-folder> --csv <output-folder>`               |
+| LECmd       | Shortcut (.lnk) file analysis     | `-f <lnk-file> --csv <output-folder>`                      |
+
+---
+
+**Note:**  
+Paths in examples typically relate to user folders or desktop paths in forensic VMs or investigated systems. Replace `<username>` with the actual user name.
+
+
+<br>
+
 ---
 
 <br>
 © 2025 by daonware 
 <br>Created: July 23, 2025
-<br>Last updated: July 23, 2025
+<br>Last updated: July 24, 2025
 
 License: [Public Domain / CC0](https://creativecommons.org/publicdomain/zero/1.0/)
